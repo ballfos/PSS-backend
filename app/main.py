@@ -8,16 +8,25 @@ from supabase import Client, create_client
 from app.crud import get_sql_members, set_status
 from app.schemas import MemberUpdate
 
+# 環境変数の読み込み
 dotenv.load_dotenv()
-# Load environment variables
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-# Create a Supabase client
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS").split(",")
+
+# Supabase クライアントの初期化
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-
+# FastAPI アプリケーションの初期化
 app = FastAPI()
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.patch("/members/{id}")
 async def update_status(id: str, member_update: MemberUpdate):
