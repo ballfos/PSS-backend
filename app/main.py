@@ -5,8 +5,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from supabase import Client, create_client
 
-from app.crud import get_sql_members, set_status
-from app.schemas import MemberUpdate
+from app.crud import get_sql_members, set_status, update_points
+from app.schemas import MemberUpdate, pointsUpdate
 
 # 環境変数の読み込み
 dotenv.load_dotenv()
@@ -28,6 +28,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 @app.patch("/members/{id}")
 async def update_status(id: str, member_update: MemberUpdate):
     """
@@ -47,3 +48,17 @@ async def get_members():
     members = get_sql_members(supabase)
 
     return {"members": members}
+
+
+@app.patch("/points/{id}")
+async def increment_points(id: str, point_update: pointsUpdate):
+
+    updated_points = update_points(
+        supabase, id, point_update.points, point_update.updated_at
+    )
+    if not updated_points:
+        raise HTTPException(status_code=404, detail=f"Member with id {id} not found.")
+
+    """
+    Increment the points of a member.
+    """
