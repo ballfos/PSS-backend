@@ -13,3 +13,24 @@ def get_sql_members(
     response = client.table("members").select("*").execute()
 
     return response.data
+
+
+def set_status(
+    client: Client,
+    id: str,
+    status: bool,
+):
+
+    response = (
+        client.table("members")
+        .update(
+            {
+                "in_room": status,
+            }
+        )
+        .eq("id", id)
+        .execute()
+    )
+    print(response.data)
+
+    return response.data
