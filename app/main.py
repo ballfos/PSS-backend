@@ -1,18 +1,21 @@
 import os
+from typing import Annotated
 
 import dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from supabase import Client, create_client
 
-from app.crud import get_sql_members, set_status, update_points
-from app.schemas import MemberUpdate, pointsUpdate
+from app.crud import read_members, update_member
+from app.schemas import MemberUpdate
 
 # 環境変数の読み込み
 dotenv.load_dotenv()
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS").split(",")
+DEVICE_AUTH_TOKENS = os.getenv("DEVICE_AUTH_TOKENS", "").split(",")
 
 # Supabase クライアントの初期化
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -28,37 +31,43 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+http_bearer = HTTPBearer(auto_error=False)
+
 
 @app.patch("/members/{id}")
-async def update_status(id: str, member_update: MemberUpdate):
+async def patch_member(
+    id: str,
+    member_update: MemberUpdate,
+    authorization: Annotated[
+        HTTPAuthorizationCredentials | None, Depends(http_bearer)
+    ] = None,
+):
     """
-    Update the in_room status of a member.
-    """
-    # Update the member's status in the database
-    updated_member = set_status(supabase, id, member_update.in_room)
+    メンバーの在室状況を更新するエンドポイント
 
+    認証トークンが存在する場合は points のインクリメント処理を追加で行う
+    """
+
+    with_points = False
+    if authorization:
+        if authorization.credentials in DEVICE_AUTH_TOKENS:
+            with_points = True
+        else:
+            raise HTTPException(status_code=403, detail="Invalid authorization token.")
+
+    # メンバーの在室状況を更新
+    updated_member = update_member(supabase, id, member_update.in_room, with_points)
     if not updated_member:
         raise HTTPException(status_code=404, detail=f"Member with id {id} not found.")
 
-    return {"message": "Member status updated successfully", "member": updated_member}
+    return {
+        "message": "Member status updated successfully",
+        "member": updated_member,
+    }
 
 
 @app.get("/members")
 async def get_members():
-    members = get_sql_members(supabase)
+    members = read_members(supabase)
 
     return {"members": members}
-
-
-@app.patch("/points/{id}")
-async def increment_points(id: str, point_update: pointsUpdate):
-
-    updated_points = update_points(
-        supabase, id, point_update.points, point_update.updated_at
-    )
-    if not updated_points:
-        raise HTTPException(status_code=404, detail=f"Member with id {id} not found.")
-
-    """
-    Increment the points of a member.
-    """
