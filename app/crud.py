@@ -7,90 +7,59 @@ from zoneinfo import ZoneInfo
 
 from supabase import Client
 
+from app.utils import is_different_date_jst
 
-def get_sql_members(
+
+def read_members(
     client: Client,
-):
+) -> List[dict]:
     response = client.table("members").select("*").execute()
-
     return response.data
 
 
-def set_status(
+def update_member(
     client: Client,
     id: str,
-    status: bool,
-):
-
-    response = (
-        client.table("members")
-        .update(
-            {
-                "in_room": status,
-                "updated_at": datetime.now(timezone.utc).isoformat(),
-            }
-        )
-        .eq("id", id)
-        .execute()
-    )
-    print(response.data)
-
-    return response.data
-
-
-def update_points(
-    client: Client,
-    id: str,
-    points: int,
-    updated_at: str,
-):
-    print(updated_at)
-    if is_different_date_jst(
-        datetime.fromisoformat(updated_at).replace(tzinfo=timezone.utc)
-    ):
-        # 日付が異なる場合はポイントを加算
-        response = (
-            client.table("members")
-            .update(
-                {
-                    "points": points + 1,
-                }
-            )
-            .eq("id", id)
-            .execute()
-        )
-    else:
-        # 日付が同じ場合はポイントを加算しない
-        response = (
-            client.table("members")
-            .update(
-                {
-                    "points": points,
-                }
-            )
-            .eq("id", id)
-            .execute()
-        )
-
-    return response.data
-
-
-def is_different_date_jst(input_datetime: datetime) -> bool:
+    in_room: bool,
+    with_points: bool = False,
+) -> Optional[dict]:
     """
-    入力された標準時を日本時間に変換し、現在の日本時間と異なる日付である場合にTrueを返す。
+    メンバーの在室状況を更新する関数
+
+    ポイント更新を行う場合のみ updated_at を更新する
 
     Args:
-        input_datetime (datetime): 確認する日時（UTCや他のタイムゾーンでもOK）。
-
+        client (Client): Supabase クライアント
+        id (str): メンバーのID
+        in_room (bool): 在室状況
+        with_points (bool): ポイント更新を行うかどうか
     Returns:
-        bool: 日付が異なる場合True、それ以外の場合False。
+        Optional[dict]: 更新されたメンバー情報、存在しない場合は None
     """
-    # 日本時間に変換
-    jst = ZoneInfo("Asia/Tokyo")
-    input_date_jst = input_datetime.astimezone(jst).date()
 
-    # 現在の日本時間を取得
-    current_date_jst = datetime.now(jst).date()
+    # メンバー情報を取得
+    member = client.table("members").select("*").eq("id", id).execute()
+    if not member.data:
+        return None
+    member = member.data[0]
 
-    # 日付が異なる場合Trueを返す
-    return current_date_jst != input_date_jst
+    # 在室状況の更新
+    json = {
+        "in_room": in_room,
+    }
+    if with_points and in_room:
+        updated_at = member.get("updated_at", None)
+        if updated_at and is_different_date_jst(datetime.fromisoformat(updated_at)):
+            # 日付が異なる場合はポイントを加算
+            points = member.get("points", 0) + 1
+        else:
+            # 日付が同じ場合はポイントを加算しない
+            points = member.get("points", 0)
+
+        json["points"] = points
+        json["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+    response = client.table("members").update(json).eq("id", id).execute()
+    if response.data:
+        return response.data[0]
+    return None
