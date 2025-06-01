@@ -10,6 +10,7 @@ from supabase import Client, create_client
 from app.crud import read_members, update_member
 from app.schemas import MemberUpdate
 from app.slack import send_slack_message
+from app.utils import sort_members_by_grade
 
 # 環境変数の読み込み
 dotenv.load_dotenv()
@@ -63,14 +64,17 @@ async def patch_member(
     # Slack への通知
     send_slack_message(updated_member["name"], updated_member["in_room"])
 
+    sorted_members = sort_members_by_grade(updated_member)
+
     return {
         "message": "Member status updated successfully",
-        "member": updated_member,
+        "member": sorted_members,
     }
 
 
 @app.get("/members")
 async def get_members():
     members = read_members(supabase)
+    sorted_members = sort_members_by_grade(members)
 
-    return {"members": members}
+    return {"members": sorted_members}
