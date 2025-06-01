@@ -28,8 +28,19 @@ def sort_members_by_grade(members):
     grade_order = {"professor": 0, "M2": 1, "M1": 2, "B4": 3}
 
     # ソート関数を適用
+
+
+def sort_members_by_grade(members):
+    # ソート順を定義
+    grade_order = {"professor": 0, "M2": 1, "M1": 2, "B4": 3}
+
+    # ソート関数を適用
     sorted_members = sorted(
-        members, key=lambda member: grade_order.get(member["grade"], float("inf"))
+        members,
+        key=lambda member: (
+            not member["in_room"],  # in_roomがTrueの人を上位に配置
+            grade_order.get(member["grade"], float("inf")),  # grade順にソート
+        ),
     )
 
     return sorted_members
