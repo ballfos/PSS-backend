@@ -4,7 +4,7 @@ import os
 import dotenv
 import requests
 
-# Bot トークン（xoxb-で始まるトークン）
+dotenv.load_dotenv()
 SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN")
 CHANNEL_NAME = os.getenv("SLACK_CHANNEL_NAME")
 
@@ -35,7 +35,7 @@ def send_slack_message(name: str, status: bool):
     if response.status_code == 200:
         response_json = response.json()
         if response_json.get("ok"):
-            print("メッセージを送信しました！")
+            print("メッセージが正常に送信されました:", response_json.get("ts"))
         else:
             print("エラー:", response_json.get("error"))
     else:
