@@ -9,6 +9,7 @@ from supabase import Client, create_client
 
 from app.crud import read_members, update_member
 from app.schemas import MemberUpdate
+from app.slack import send_slack_message
 
 # 環境変数の読み込み
 dotenv.load_dotenv()
@@ -59,6 +60,8 @@ async def patch_member(
     updated_member = update_member(supabase, id, member_update.in_room, with_points)
     if not updated_member:
         raise HTTPException(status_code=404, detail=f"Member with id {id} not found.")
+    # Slack への通知
+    send_slack_message(updated_member["name"], updated_member["in_room"])
 
     return {
         "message": "Member status updated successfully",
