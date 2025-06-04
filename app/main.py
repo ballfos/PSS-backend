@@ -64,11 +64,9 @@ async def patch_member(
     # Slack への通知
     send_slack_message(updated_member["name"], updated_member["in_room"])
 
-    sorted_members = sort_members_by_grade(updated_member)
-
     return {
         "message": "Member status updated successfully",
-        "member": sorted_members,
+        "member": updated_member,
     }
 
 
